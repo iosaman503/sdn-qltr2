@@ -3,6 +3,8 @@
 
 #include "ns3/ofswitch13-module.h"
 #include "ns3/aqua-sim-ng-module.h"
+#include "ns3/arp-l3-protocol.h"  // For ARP handling
+#include "ns3/ipv4-address.h"     // For IPv4 address handling
 #include <map>
 
 using namespace ns3;
@@ -56,6 +58,11 @@ class QLTRController : public OFSwitch13Controller
      * \param dst Destination IP address.
      */
     void TrustEvaluation(Ipv4Address src, Ipv4Address dst);
+
+    /**
+     * Extract an IPv4 address from OpenFlow match structures.
+     */
+    Ipv4Address ExtractIpv4Address(uint32_t oxm_of, struct ofl_match* match);
 
     /**
      * Calculate throughput based on flow statistics.
