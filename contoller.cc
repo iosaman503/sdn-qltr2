@@ -1,6 +1,5 @@
 #include "controller.h"
 #include "ns3/log.h"
-#include <gsl/gsl_histogram.h>
 
 NS_LOG_COMPONENT_DEFINE("QLTRController");
 NS_OBJECT_ENSURE_REGISTERED(QLTRController);
@@ -10,13 +9,10 @@ QLTRController::QLTRController()
     NS_LOG_FUNCTION(this);
     m_totalBytesReceived = 0;
     m_simulationTime = 50.0; // Example total simulation time in seconds
-    throughputHistogram = gsl_histogram_alloc(100); // Create histogram for throughput with 100 bins
-    gsl_histogram_set_ranges_uniform(throughputHistogram, 0, 100);
 }
 
 QLTRController::~QLTRController()
 {
-    gsl_histogram_free(throughputHistogram); // Free memory for the histogram
 }
 
 void
@@ -63,59 +59,3 @@ QLTRController::HandlePacketIn(struct ofl_msg_packet_in* msg,
                                Ptr<const RemoteSwitch> swtch,
                                uint32_t xid)
 {
-    NS_LOG_FUNCTION(this << swtch << xid);
-    uint16_t ethType;
-    struct ofl_match_tlv* tlv;
-
-    tlv = oxm_match_lookup(OXM_OF_ETH_TYPE, (struct ofl_match*)msg->match);
-    memcpy(&ethType, tlv->value, OXM_LENGTH(OXM_OF_ETH_TYPE));
-
-    if (ethType == ArpL3Protocol::PROT_NUMBER)
-    {
-        return HandleArpPacketIn(msg, swtch, xid);
-    }
-    else if (ethType == Ipv4L3Protocol::PROT_NUMBER)
-    {
-        Ipv4Address srcIp = ExtractIpv4Address(OXM_OF_IPV4_SRC, (struct ofl_match*)msg->match);
-        Ipv4Address dstIp = ExtractIpv4Address(OXM_OF_IPV4_DST, (struct ofl_match*)msg->match);
-
-        TrustEvaluation(srcIp, dstIp);
-        QLearningRouting(srcIp, dstIp);
-
-        // Update throughput statistics
-        m_totalBytesReceived += msg->data_length;
-
-        // Add data to histogram
-        gsl_histogram_increment(throughputHistogram, (msg->data_length * 8.0) / m_simulationTime);
-    }
-
-    ofl_msg_free((struct ofl_msg_header*)msg, nullptr);
-    return 0;
-}
-
-void
-QLTRController::CalculateThroughput()
-{
-    // Calculate throughput (in Mbps)
-    double throughput = (m_totalBytesReceived * 8.0) / (m_simulationTime * 1000000.0);
-    NS_LOG_INFO("Network Throughput: " << throughput << " Mbps");
-}
-
-void
-QLTRController::CalculateEfficiency()
-{
-    // Example efficiency calculation
-    double efficiency = (m_totalBytesReceived / (m_simulationTime * 1000000)) * 100;
-    NS_LOG_INFO("Network Efficiency: " << efficiency << "%");
-}
-
-void
-QLTRController::PrintResults()
-{
-    CalculateThroughput();
-    CalculateEfficiency();
-
-    // Print histogram for throughput (using GSL)
-    NS_LOG_INFO("Histogram of Throughput:");
-    gsl_histogram_fprintf(stdout, throughputHistogram, "%g", "%g");
-}
