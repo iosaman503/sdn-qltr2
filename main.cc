@@ -2,8 +2,6 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("SDNQLTRSimulation");
-
 int
 main (int argc, char *argv[])
 {
@@ -12,7 +10,7 @@ main (int argc, char *argv[])
   bool trace = true;
 
   // Configure command line parameters
-  CommandLine cmd;
+  CommandLine cmd (__FILE__);
   cmd.AddValue ("simTime", "Simulation time (seconds)", simTime);
   cmd.AddValue ("verbose", "Enable verbose output", verbose);
   cmd.AddValue ("trace", "Enable datapath stats and pcap traces", trace);
@@ -21,16 +19,6 @@ main (int argc, char *argv[])
   if (verbose)
     {
       OFSwitch13Helper::EnableDatapathLogs ();
-      LogComponentEnable ("OFSwitch13Interface", LOG_LEVEL_ALL);
-      LogComponentEnable ("OFSwitch13Device", LOG_LEVEL_ALL);
-      LogComponentEnable ("OFSwitch13Port", LOG_LEVEL_ALL);
-      LogComponentEnable ("OFSwitch13Queue", LOG_LEVEL_ALL);
-      LogComponentEnable ("OFSwitch13SocketHandler", LOG_LEVEL_ALL);
-      LogComponentEnable ("OFSwitch13Controller", LOG_LEVEL_ALL);
-      LogComponentEnable ("OFSwitch13LearningController", LOG_LEVEL_ALL);
-      LogComponentEnable ("OFSwitch13Helper", LOG_LEVEL_ALL);
-      LogComponentEnable ("OFSwitch13InternalHelper", LOG_LEVEL_ALL);
-      LogComponentEnable ("SDNController", LOG_LEVEL_ALL);
     }
 
   // Create nodes
