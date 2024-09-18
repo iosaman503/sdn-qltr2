@@ -1,4 +1,4 @@
-#include "sdn_controller.cc"
+#include "controller.cc"
 
 using namespace ns3;
 
