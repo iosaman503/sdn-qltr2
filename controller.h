@@ -9,6 +9,7 @@
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/node.h"
+#include "ns3/ofswitch13-controller.h"
 
 #include <vector>
 #include <map>
