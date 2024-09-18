@@ -3,18 +3,16 @@
 
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
-#include "ns3/csma-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/ofswitch13-module.h"
-#include "ns3/netanim-module.h"
-#include "ns3/applications-module.h"
 
 #include <vector>
 #include <map>
 
 namespace ns3 {
 
-class SDNController : public Application {
+class SDNController : public Application 
+{
 public:
   static TypeId GetTypeId (void);
   SDNController ();
@@ -33,37 +31,29 @@ private:
 
 NS_OBJECT_ENSURE_REGISTERED (SDNController);
 
-TypeId SDNController::GetTypeId (void)
+TypeId 
+SDNController::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::SDNController")
     .SetParent<Application> ()
     .SetGroupName ("OFSwitch13")
-    .AddConstructor<SDNController> ()
-  ;
+    .AddConstructor<SDNController> ();
   return tid;
 }
 
-SDNController::SDNController ()
-{
-  NS_LOG_FUNCTION (this);
-}
+SDNController::SDNController () {}
 
-SDNController::~SDNController ()
-{
-  NS_LOG_FUNCTION (this);
-}
+SDNController::~SDNController () {}
 
 void
 SDNController::SetupSwitch (Ptr<OFSwitch13Device> swtch)
 {
-  NS_LOG_FUNCTION (this << swtch);
   m_switches.push_back (swtch);
 }
 
 void
 SDNController::Learn (Ptr<const Packet> packet, const Address& source)
 {
-  NS_LOG_FUNCTION (this << packet << source);
   Mac48Address src = Mac48Address::ConvertFrom (source);
   m_macToPort[src] = packet->GetUid ();
 }
@@ -71,15 +61,15 @@ SDNController::Learn (Ptr<const Packet> packet, const Address& source)
 void
 SDNController::StartApplication ()
 {
-  NS_LOG_FUNCTION (this);
+  // Add any necessary initialization code here
 }
 
 void
 SDNController::StopApplication ()
 {
-  NS_LOG_FUNCTION (this);
+  // Add any necessary cleanup code here
 }
 
-}
+} // namespace ns3
 
 #endif // SDN_CONTROLLER_H
