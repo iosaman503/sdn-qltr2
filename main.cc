@@ -1,4 +1,4 @@
-#include "controller.cc"
+#include "controller.h"
 
 using namespace ns3;
 
