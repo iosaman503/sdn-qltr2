@@ -3,7 +3,6 @@
 
 #include "ns3/ofswitch13-module.h"
 #include "ns3/aqua-sim-ng-module.h"
-#include <gsl/gsl_histogram.h>
 #include <map>
 
 using namespace ns3;
@@ -72,7 +71,6 @@ class QLTRController : public OFSwitch13Controller
     std::map<Ipv4Address, double> m_qValues;     //!< Q-learning values for nodes.
     uint64_t m_totalBytesReceived;               //!< Total bytes received.
     double m_simulationTime;                     //!< Total simulation time.
-    gsl_histogram* throughputHistogram;          //!< Histogram for throughput.
 };
 
 #endif /* QLTR_CONTROLLER_H */
