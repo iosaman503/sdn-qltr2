@@ -1,5 +1,7 @@
 #include "controller.h"
 #include "ns3/log.h"
+#include "ns3/arp-l3-protocol.h"   // For ARP handling
+#include "ns3/ipv4-address.h"      // For handling IPv4 addresses
 
 NS_LOG_COMPONENT_DEFINE("QLTRController");
 NS_OBJECT_ENSURE_REGISTERED(QLTRController);
@@ -54,6 +56,25 @@ QLTRController::QLearningRouting(Ipv4Address src, Ipv4Address dst)
     }
 }
 
+Ipv4Address
+QLTRController::ExtractIpv4Address(uint32_t oxm_of, struct ofl_match* match)
+{
+    // Extracts IPv4 addresses from OpenFlow match structures
+    switch (oxm_of)
+    {
+    case OXM_OF_IPV4_SRC:
+    case OXM_OF_IPV4_DST:
+    {
+        uint32_t ip;
+        struct ofl_match_tlv* tlv = oxm_match_lookup(oxm_of, match);
+        memcpy(&ip, tlv->value, OXM_LENGTH(oxm_of));
+        return Ipv4Address(ntohl(ip));
+    }
+    default:
+        NS_ABORT_MSG("Invalid IPv4 field.");
+    }
+}
+
 ofl_err
 QLTRController::HandlePacketIn(struct ofl_msg_packet_in* msg,
                                Ptr<const RemoteSwitch> swtch,
@@ -66,7 +87,7 @@ QLTRController::HandlePacketIn(struct ofl_msg_packet_in* msg,
     tlv = oxm_match_lookup(OXM_OF_ETH_TYPE, (struct ofl_match*)msg->match);
     memcpy(&ethType, tlv->value, OXM_LENGTH(OXM_OF_ETH_TYPE));
 
-    if (ethType == ArpL3Protocol::PROT_NUMBER)
+    if (ethType == ArpL3Protocol::PROT_NUMBER)  // ARP handling
     {
         // Handle ARP packets
         return 0;
