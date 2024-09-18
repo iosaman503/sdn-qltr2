@@ -59,3 +59,53 @@ QLTRController::HandlePacketIn(struct ofl_msg_packet_in* msg,
                                Ptr<const RemoteSwitch> swtch,
                                uint32_t xid)
 {
+    NS_LOG_FUNCTION(this << swtch << xid);
+    uint16_t ethType;
+    struct ofl_match_tlv* tlv;
+
+    tlv = oxm_match_lookup(OXM_OF_ETH_TYPE, (struct ofl_match*)msg->match);
+    memcpy(&ethType, tlv->value, OXM_LENGTH(OXM_OF_ETH_TYPE));
+
+    if (ethType == ArpL3Protocol::PROT_NUMBER)
+    {
+        // Handle ARP packets
+        return 0;
+    }
+    else if (ethType == Ipv4L3Protocol::PROT_NUMBER)
+    {
+        Ipv4Address srcIp = ExtractIpv4Address(OXM_OF_IPV4_SRC, (struct ofl_match*)msg->match);
+        Ipv4Address dstIp = ExtractIpv4Address(OXM_OF_IPV4_DST, (struct ofl_match*)msg->match);
+
+        TrustEvaluation(srcIp, dstIp);
+        QLearningRouting(srcIp, dstIp);
+
+        // Update throughput statistics
+        m_totalBytesReceived += msg->data_length;
+    }
+
+    ofl_msg_free((struct ofl_msg_header*)msg, nullptr);
+    return 0;
+}
+
+void
+QLTRController::CalculateThroughput()
+{
+    // Calculate throughput (in Mbps)
+    double throughput = (m_totalBytesReceived * 8.0) / (m_simulationTime * 1000000.0);
+    NS_LOG_INFO("Network Throughput: " << throughput << " Mbps");
+}
+
+void
+QLTRController::CalculateEfficiency()
+{
+    // Example efficiency calculation
+    double efficiency = (m_totalBytesReceived / (m_simulationTime * 1000000)) * 100;
+    NS_LOG_INFO("Network Efficiency: " << efficiency << "%");
+}
+
+void
+QLTRController::PrintResults()
+{
+    CalculateThroughput();
+    CalculateEfficiency();
+}
