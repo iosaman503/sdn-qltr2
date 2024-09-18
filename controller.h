@@ -2,9 +2,7 @@
 #define QLTR_CONTROLLER_H
 
 #include "ns3/ofswitch13-module.h"
-#include "ns3/aqua-sim-ng-module.h"
-#include "ns3/arp-l3-protocol.h"  // For ARP handling
-#include "ns3/ipv4-address.h"     // For IPv4 address handling
+#include "ns3/ipv4-address.h"
 #include <map>
 
 using namespace ns3;
@@ -28,8 +26,7 @@ class QLTRController : public OFSwitch13Controller
     static TypeId GetTypeId();
 
     /**
-     * Handle a packet in message sent by the switch to this controller.
-     * \note Inherited from OFSwitch13Controller.
+     * Handle a packet-in message sent by the switch to this controller.
      * \param msg The OpenFlow received message.
      * \param swtch The remote switch metadata.
      * \param xid The transaction id from the request message.
@@ -46,20 +43,6 @@ class QLTRController : public OFSwitch13Controller
 
   private:
     /**
-     * Handle Q-Learning routing decision.
-     * \param src Source IP address.
-     * \param dst Destination IP address.
-     */
-    void QLearningRouting(Ipv4Address src, Ipv4Address dst);
-
-    /**
-     * Perform trust evaluation for nodes.
-     * \param src Source IP address.
-     * \param dst Destination IP address.
-     */
-    void TrustEvaluation(Ipv4Address src, Ipv4Address dst);
-
-    /**
      * Extract an IPv4 address from OpenFlow match structures.
      */
     Ipv4Address ExtractIpv4Address(uint32_t oxm_of, struct ofl_match* match);
@@ -74,7 +57,6 @@ class QLTRController : public OFSwitch13Controller
      */
     void CalculateEfficiency();
 
-    std::map<Ipv4Address, double> m_trustValues; //!< Trust values for nodes.
     std::map<Ipv4Address, double> m_qValues;     //!< Q-learning values for nodes.
     uint64_t m_totalBytesReceived;               //!< Total bytes received.
     double m_simulationTime;                     //!< Total simulation time.
