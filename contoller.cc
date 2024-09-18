@@ -1,5 +1,5 @@
 #include "controller.h"
-#include <ns3/log.h>
+#include "ns3/log.h"
 #include <gsl/gsl_histogram.h>
 
 NS_LOG_COMPONENT_DEFINE("QLTRController");
