@@ -1,4 +1,5 @@
 #include "controller.h"
+#include "ns3/ofswitch13-module.h"
 
 using namespace ns3;
 
@@ -45,11 +46,16 @@ main (int argc, char *argv[])
   Ptr<OFSwitch13InternalHelper> of13Helper = CreateObject<OFSwitch13InternalHelper> ();
   Ptr<OFSwitch13Device> ofSwitch = of13Helper->InstallSwitch (switches.Get (0), switchPorts);
 
+  // // Create controller
+  // Ptr<SDNController> controller = CreateObject<SDNController> ();
+  // controller->SetupSwitch (ofSwitch);
   // Create controller
-  Ptr<SDNController> controller = CreateObject<SDNController> ();
-  controller->SetupSwitch (ofSwitch);
+Ptr<SDNController> sdnController = CreateObject<SDNController> ();
+sdnController->SetupSwitch (ofSwitch);
+Ptr<OFSwitch13Controller> controller = DynamicCast<OFSwitch13Controller> (sdnController);
+of13Helper->InstallController (controller);
 
-  of13Helper->InstallController (controller);
+ // of13Helper->InstallController (controller);
 
   // Install Internet stack
   InternetStackHelper internet;
