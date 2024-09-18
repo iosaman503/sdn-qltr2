@@ -48,42 +48,47 @@ int main(int argc, char* argv[])
     // Assign IP addresses
     Ipv4AddressHelper ipv4;
     ipv4.SetBase("10.0.0.0", "255.255.255.0");
-    ipv4.Assign(devices);
+    Ipv4InterfaceContainer interfaces = ipv4.Assign(devices);
 
-    // Setup SDN Controller
-    Ptr<QLTRController> controller = CreateObject<QLTRController>();
-    NodeContainer controllerNode;
-    controllerNode.Create(1);
-    controllerNode.Get(0)->AddApplication(controller);
+    // Set up SDN controller (QLTRController)
+    Ptr<QLTRController> qltrController = CreateObject<QLTRController>();
 
-    // Install OFSwitch13 and connect to SDN controller
+    // Set up OpenFlow switches and controller
     OFSwitch13Helper ofSwitchHelper;
-    ofSwitchHelper.SetStackIoModel(OFStackIoModel::IO_TYPE_NETLINK);
-    NetDeviceContainer switchDevices = ofSwitchHelper.Install(nodes);
+    ofSwitchHelper.InstallController(nodes.Get(0), qltrController); // Controller installed on node 0
+    ofSwitchHelper.InstallSwitch(nodes.Get(1), devices); // Switch installed on node 1
+    ofSwitchHelper.CreateOpenFlowChannels(); // Create OpenFlow channels
 
-    // Connect the OFSwitch13 to the SDN controller
-    ofSwitchHelper.InstallController(controller, switchDevices);
+    // Set up traffic generation from clients to servers
+    // PacketSinkHelper for receiving data at destination node
+    PacketSinkHelper sinkHelper("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), 9));
+    ApplicationContainer sinkApps = sinkHelper.Install(nodes.Get(1)); // Install sink at node 1 (server)
+    sinkApps.Start(Seconds(1.0));
 
-    // Set up applications (e.g., traffic generators)
-    uint16_t port = 9;
-    OnOffHelper onOffHelper("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address("255.255.255.255"), port));
-    onOffHelper.SetAttribute("DataRate", StringValue("1Mbps"));
-    onOffHelper.SetAttribute("PacketSize", UintegerValue(1024));
+    // BulkSendHelper for sending data from client to server
+    BulkSendHelper bulkSender("ns3::TcpSocketFactory", InetSocketAddress(interfaces.GetAddress(1), 9)); 
+    ApplicationContainer senderApps = bulkSender.Install(nodes.Get(2)); // Install sender at node 2 (client)
+    senderApps.Start(Seconds(2.0));
 
-    ApplicationContainer apps = onOffHelper.Install(nodes.Get(0));
-    apps.Start(Seconds(1.0));
-    apps.Stop(Seconds(simTime - 1.0));
+    // Enable tracing
+    if (verbose)
+    {
+        asHelper.EnableAsciiAll("aqua-sim");
+        ofSwitchHelper.EnableOpenFlowPcap("openflow");
+        ofSwitchHelper.EnableDatapathStats("switch-stats");
+    }
 
-    // Install packet sink on the receiver node
-    PacketSinkHelper packetSinkHelper("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
-    apps = packetSinkHelper.Install(nodes.Get(1));
-    apps.Start(Seconds(0.0));
-    apps.Stop(Seconds(simTime));
-
-    // Configure and run the simulation
+    // Run the simulation
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
     Simulator::Destroy();
+
+    // Print results for throughput and efficiency
+    qltrController->PrintResults();
+
+    // Print the total bytes received at the sink node
+    Ptr<PacketSink> sink = DynamicCast<PacketSink>(sinkApps.Get(0));
+    std::cout << "Bytes received: " << sink->GetTotalRx() << std::endl;
 
     return 0;
 }
