@@ -1,7 +1,5 @@
 #include "controller.h"
 #include "ns3/log.h"
-#include "ns3/arp-l3-protocol.h"   // For ARP handling
-#include "ns3/ipv4-address.h"      // For handling IPv4 addresses
 
 NS_LOG_COMPONENT_DEFINE("QLTRController");
 NS_OBJECT_ENSURE_REGISTERED(QLTRController);
@@ -34,32 +32,10 @@ QLTRController::GetTypeId()
     return tid;
 }
 
-void
-QLTRController::TrustEvaluation(Ipv4Address src, Ipv4Address dst)
-{
-    // Evaluate trust between src and dst
-    if (m_trustValues[src] < 0.7)
-    {
-        m_trustValues[src] += 0.1; // Update trust values based on successful transmissions
-    }
-    NS_LOG_INFO("Trust value of " << src << ": " << m_trustValues[src]);
-}
-
-void
-QLTRController::QLearningRouting(Ipv4Address src, Ipv4Address dst)
-{
-    // Q-Learning routing logic
-    if (m_qValues[src] < 1.0)
-    {
-        m_qValues[src] += 0.1;  // Update Q-values based on routing decisions
-        NS_LOG_INFO("Q-value of " << src << ": " << m_qValues[src]);
-    }
-}
-
 Ipv4Address
 QLTRController::ExtractIpv4Address(uint32_t oxm_of, struct ofl_match* match)
 {
-    // Extracts IPv4 addresses from OpenFlow match structures
+    // Extract IPv4 addresses from OpenFlow match structures
     switch (oxm_of)
     {
     case OXM_OF_IPV4_SRC:
@@ -87,20 +63,12 @@ QLTRController::HandlePacketIn(struct ofl_msg_packet_in* msg,
     tlv = oxm_match_lookup(OXM_OF_ETH_TYPE, (struct ofl_match*)msg->match);
     memcpy(&ethType, tlv->value, OXM_LENGTH(OXM_OF_ETH_TYPE));
 
-    if (ethType == ArpL3Protocol::PROT_NUMBER)  // ARP handling
-    {
-        // Handle ARP packets
-        return 0;
-    }
-    else if (ethType == Ipv4L3Protocol::PROT_NUMBER)
+    if (ethType == Ipv4L3Protocol::PROT_NUMBER)
     {
         Ipv4Address srcIp = ExtractIpv4Address(OXM_OF_IPV4_SRC, (struct ofl_match*)msg->match);
         Ipv4Address dstIp = ExtractIpv4Address(OXM_OF_IPV4_DST, (struct ofl_match*)msg->match);
 
-        TrustEvaluation(srcIp, dstIp);
-        QLearningRouting(srcIp, dstIp);
-
-        // Update throughput statistics
+        // Basic packet handling for throughput calculation
         m_totalBytesReceived += msg->data_length;
     }
 
