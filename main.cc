@@ -47,10 +47,10 @@ int main(int argc, char* argv[])
     // Set up SDN controller (QLTRController)
     Ptr<QLTRController> qltrController = CreateObject<QLTRController>();
 
-    // Set up OpenFlow switches and controller
-    OFSwitch13Helper ofSwitchHelper;
+    // Set up OpenFlow controller and switch
+    OFSwitch13InternalHelper ofSwitchHelper;
     ofSwitchHelper.InstallController(nodes.Get(0), qltrController); // Controller installed on node 0
-    ofSwitchHelper.InstallSwitch(nodes.Get(1), devices.Get(1)); // Switch on node 1
+    ofSwitchHelper.InstallSwitch(nodes.Get(1), devices.Get(1));     // Switch on node 1
     ofSwitchHelper.CreateOpenFlowChannels(); // Create OpenFlow channels
 
     // Set up traffic generation from clients to servers
