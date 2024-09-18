@@ -50,27 +50,12 @@ main (int argc, char *argv[])
   // Ptr<SDNController> controller = CreateObject<SDNController> ();
   // controller->SetupSwitch (ofSwitch);
   // Create controller
-// Ptr<SDNController> sdnController = CreateObject<SDNController> ();
-// sdnController->SetupSwitch (ofSwitch);
-// Ptr<OFSwitch13Controller> controller = DynamicCast<OFSwitch13Controller> (sdnController);
-// of13Helper->InstallController (controller);
-
-
-  Ptr<Node> ofSwitch = CreateObject<Node> (); // Ensure ofSwitch is a Node
 Ptr<SDNController> sdnController = CreateObject<SDNController> ();
+sdnController->SetupSwitch (ofSwitch);
+Ptr<OFSwitch13Controller> controller = DynamicCast<OFSwitch13Controller> (sdnController);
+of13Helper->InstallController (controller);
 
-// Assuming SetupSwitch is a method that sets up a node with a controller
-ofSwitch->SetupController(sdnController);
 
-// Install the OFSwitch13 controller using the correct type
-Ptr<OFSwitch13Controller> ofSwitchController = DynamicCast<OFSwitch13Controller> (sdnController);
-
-if (ofSwitchController == nullptr) {
-    NS_LOG_ERROR ("Failed to cast SDNController to OFSwitch13Controller");
-    return 1;
-}
-
-of13Helper->InstallController(ofSwitchController);
 
 
  // of13Helper->InstallController (controller);
