@@ -8,13 +8,14 @@
 #include "ns3/ofswitch13-module.h"
 #include "ns3/netanim-module.h"
 #include "ns3/applications-module.h"
+#include "ns3/node.h"
 
 #include <vector>
 #include <map>
 
 namespace ns3 {
 
-class SDNController : public Application {
+class SDNController : public ns3::Node {
 public:
   static TypeId GetTypeId (void);
   SDNController ();
