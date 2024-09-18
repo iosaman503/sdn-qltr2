@@ -1,8 +1,8 @@
 #ifndef QLTR_CONTROLLER_H
 #define QLTR_CONTROLLER_H
 
-#include <ns3/ofswitch13-module.h>
-#include <ns3/aqua-sim-ng-module.h>
+#include "ns3/ofswitch13-module.h"
+#include "ns3/aqua-sim-ng-module.h"
 #include <gsl/gsl_histogram.h>
 #include <map>
 
