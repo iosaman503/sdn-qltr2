@@ -11,7 +11,7 @@
 
 namespace ns3 {
 
-class SDNController : public Object 
+class SDNController : public ns3::Node
 {
 public:
   static TypeId GetTypeId (void);
