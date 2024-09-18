@@ -35,19 +35,28 @@ QLTRController::GetTypeId()
 Ipv4Address
 QLTRController::ExtractIpv4Address(uint32_t oxm_of, struct ofl_match* match)
 {
-    // Extract IPv4 addresses from OpenFlow match structures
+    struct ofl_match_tlv* tlv;
+    
+    // Extract IP addresses from the match fields
     switch (oxm_of)
     {
     case OXM_OF_IPV4_SRC:
     case OXM_OF_IPV4_DST:
     {
-        uint32_t ip;
-        struct ofl_match_tlv* tlv = oxm_match_lookup(oxm_of, match);
-        memcpy(&ip, tlv->value, OXM_LENGTH(oxm_of));
-        return Ipv4Address(ntohl(ip));
+        uint32_t ip = 0; // Initialize a 32-bit unsigned integer for the IP address
+        
+        // Look up the OXM match field (source or destination IP)
+        tlv = oxm_match_lookup(oxm_of, match);
+        if (tlv)
+        {
+            // Ensure that we are correctly copying the value to the uint32_t variable
+            memcpy(&ip, tlv->value, sizeof(ip));
+            return Ipv4Address(ntohl(ip));  // Convert to host byte order
+        }
+        return Ipv4Address("0.0.0.0");  // Default invalid address if no match found
     }
     default:
-        NS_ABORT_MSG("Invalid IPv4 field.");
+        NS_ABORT_MSG("Invalid IP field.");
     }
 }
 
