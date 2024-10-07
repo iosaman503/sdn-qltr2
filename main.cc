@@ -66,11 +66,13 @@ int main(int argc, char* argv[])
     internet.Install(serverNodes);
     internet.Install(clientNodes);
 
+    // Check if pcap traces are enabled
     if (trace)
     {
-        ofQosHelper->EnableOpenFlowPcap("openflow");
-        csmaHelper.EnablePcap("server", serverDevices);
-        csmaHelper.EnablePcap("client", clientDevices);
+        ofQosHelper->EnableOpenFlowPcap("openflow"); // Capture OpenFlow switch traffic
+        csmaHelper.EnablePcap("server", serverDevices); // Capture server traffic
+        csmaHelper.EnablePcap("client", clientDevices); // Capture client traffic
+        csmaHelper.EnablePcap("switch", switchNodes);   // Capture switch traffic
     }
 
     Simulator::Stop(Seconds(simTime));
