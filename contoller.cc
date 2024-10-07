@@ -1,4 +1,4 @@
-#include "qos-controller.h"
+#include "controller.h"
 #include <ns3/internet-module.h>
 #include <ns3/network-module.h>
 
