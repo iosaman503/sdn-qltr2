@@ -1,4 +1,4 @@
-#include "qos-controller.h"
+#include "controller.h"
 #include <ns3/applications-module.h>
 #include <ns3/core-module.h>
 #include <ns3/csma-module.h>
