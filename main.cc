@@ -1,108 +1,79 @@
-#include "controller.h"
-#include "ns3/ofswitch13-module.h"
+#include "qos-controller.h"
+#include <ns3/applications-module.h>
+#include <ns3/core-module.h>
+#include <ns3/csma-module.h>
+#include <ns3/internet-module.h>
+#include <ns3/network-module.h>
+#include <ns3/ofswitch13-module.h>
 
 using namespace ns3;
 
-int
-main (int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-  uint16_t simTime = 10;
-  bool verbose = true;
-  bool trace = true;
+    uint16_t clients = 2;
+    uint16_t simTime = 10;
+    bool verbose = false;
+    bool trace = false;
 
-  // Configure command line parameters
-  CommandLine cmd (__FILE__);
-  cmd.AddValue ("simTime", "Simulation time (seconds)", simTime);
-  cmd.AddValue ("verbose", "Enable verbose output", verbose);
-  cmd.AddValue ("trace", "Enable datapath stats and pcap traces", trace);
-  cmd.Parse (argc, argv);
+    CommandLine cmd;
+    cmd.AddValue("clients", "Number of client nodes", clients);
+    cmd.AddValue("simTime", "Simulation time (seconds)", simTime);
+    cmd.AddValue("verbose", "Enable verbose output", verbose);
+    cmd.AddValue("trace", "Enable datapath stats and pcap traces", trace);
+    cmd.Parse(argc, argv);
 
-  if (verbose)
+    if (verbose)
     {
-      OFSwitch13Helper::EnableDatapathLogs ();
+        OFSwitch13Helper::EnableDatapathLogs();
     }
 
-  // Create nodes
-  NodeContainer switches;
-  switches.Create (1);
-  NodeContainer hosts;
-  hosts.Create (4);
+    Config::SetDefault("ns3::OFSwitch13Helper::ChannelType", EnumValue(OFSwitch13Helper::DEDICATED_CSMA));
+    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(1400));
 
-  // Create links
-  CsmaHelper csmaHelper;
-  csmaHelper.SetChannelAttribute ("DataRate", DataRateValue (DataRate ("100Mbps")));
-  csmaHelper.SetChannelAttribute ("Delay", TimeValue (MilliSeconds (2)));
+    NodeContainer serverNodes, switchNodes, controllerNodes, clientNodes;
+    serverNodes.Create(2);
+    switchNodes.Create(3);
+    controllerNodes.Create(2);
+    clientNodes.Create(clients);
 
-  NetDeviceContainer hostDevices;
-  NetDeviceContainer switchPorts;
-  for (size_t i = 0; i < hosts.GetN (); i++)
+    CsmaHelper csmaHelper;
+    csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("100Mbps")));
+    
+    NetDeviceContainer link, switch0Ports, switch1Ports, switch2Ports, serverDevices, clientDevices;
+
+    link = csmaHelper.Install(NodeContainer(switchNodes.Get(0), switchNodes.Get(1)));
+    switch0Ports.Add(link.Get(0)); switch1Ports.Add(link.Get(1));
+    link = csmaHelper.Install(NodeContainer(switchNodes.Get(1), switchNodes.Get(2)));
+    switch1Ports.Add(link.Get(0)); switch2Ports.Add(link.Get(1));
+
+    link = csmaHelper.Install(NodeContainer(serverNodes.Get(0), switchNodes.Get(0)));
+    serverDevices.Add(link.Get(0)); switch0Ports.Add(link.Get(1));
+    
+    for (size_t i = 0; i < clients; i++)
     {
-      NetDeviceContainer link = csmaHelper.Install (NodeContainer (hosts.Get (i), switches.Get (0)));
-      hostDevices.Add (link.Get (0));
-      switchPorts.Add (link.Get (1));
+        link = csmaHelper.Install(NodeContainer(clientNodes.Get(i), switchNodes.Get(2)));
+        clientDevices.Add(link.Get(0)); switch2Ports.Add(link.Get(1));
     }
 
-  // Create switch device
-  Ptr<OFSwitch13InternalHelper> of13Helper = CreateObject<OFSwitch13InternalHelper> ();
-  Ptr<OFSwitch13Device> ofSwitch = of13Helper->InstallSwitch (switches.Get (0), switchPorts);
+    Ptr<OFSwitch13InternalHelper> ofQosHelper = CreateObject<OFSwitch13InternalHelper>();
+    Ptr<QosController> qosCtrl = CreateObject<QosController>();
+    ofQosHelper->InstallController(controllerNodes.Get(0), qosCtrl);
 
-  // // Create controller
-  // Ptr<SDNController> controller = CreateObject<SDNController> ();
-  // controller->SetupSwitch (ofSwitch);
-  // Create controller
-Ptr<SDNController> sdnController = CreateObject<SDNController> ();
-sdnController->SetupSwitch (ofSwitch);
-Ptr<OFSwitch13Controller> controller = DynamicCast<OFSwitch13Controller> (sdnController);
-of13Helper->InstallController (controller);
+    OFSwitch13DeviceContainer ofSwitchDevices;
+    ofSwitchDevices.Add(ofQosHelper->InstallSwitch(switchNodes.Get(0), switch0Ports));
 
+    InternetStackHelper internet;
+    internet.Install(serverNodes);
+    internet.Install(clientNodes);
 
-
-
- // of13Helper->InstallController (controller);
-
-  // Install Internet stack
-  InternetStackHelper internet;
-  internet.Install (hosts);
-
-  // Configure IP addresses
-  Ipv4AddressHelper ipv4Helper;
-  Ipv4InterfaceContainer hostIpIfaces;
-  ipv4Helper.SetBase ("10.1.1.0", "255.255.255.0");
-  hostIpIfaces = ipv4Helper.Assign (hostDevices);
-
-  // Configure traffic application
-  uint16_t port = 9;
-  Address serverAddress (InetSocketAddress (hostIpIfaces.GetAddress (0), port));
-  PacketSinkHelper packetSinkHelper ("ns3::TcpSocketFactory", serverAddress);
-  ApplicationContainer serverApps = packetSinkHelper.Install (hosts.Get (0));
-  serverApps.Start (Seconds (0.0));
-
-  OnOffHelper onoff ("ns3::TcpSocketFactory", serverAddress);
-  onoff.SetConstantRate (DataRate ("10Mb/s"));
-  onoff.SetAttribute ("PacketSize", UintegerValue (1000));
-  ApplicationContainer clientApps = onoff.Install (hosts.Get (1));
-  clientApps.Start (Seconds (1.0));
-
-  // Enable datapath stats and pcap traces at hosts and switch ports
-  if (trace)
+    if (trace)
     {
-      of13Helper->EnableDatapathStats ("switch-stats");
-      csmaHelper.EnablePcap ("switch", switchPorts, true);
-      csmaHelper.EnablePcap ("host", hostDevices);
+        ofQosHelper->EnableOpenFlowPcap("openflow");
+        csmaHelper.EnablePcap("server", serverDevices);
+        csmaHelper.EnablePcap("client", clientDevices);
     }
 
-  // Run the simulation
-  Simulator::Stop (Seconds (simTime));
-  Simulator::Run ();
-  Simulator::Destroy ();
-
-  // Calculate and output throughput and efficiency
-  Ptr<PacketSink> sink = DynamicCast<PacketSink> (serverApps.Get (0));
-  double throughput = sink->GetTotalRx () * 8.0 / (simTime * 1000000.0); // Mbps
-  double efficiency = throughput / 10.0; // Assuming 10Mbps was the sending rate
-
-  std::cout << "Throughput: " << throughput << " Mbps" << std::endl;
-  std::cout << "Efficiency: " << efficiency * 100 << "%" << std::endl;
-
-  return 0;
+    Simulator::Stop(Seconds(simTime));
+    Simulator::Run();
+    Simulator::Destroy();
 }
