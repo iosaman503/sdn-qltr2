@@ -1,5 +1,5 @@
-#ifndef QOS_CONTROLLER_H
-#define QOS_CONTROLLER_H
+#ifndef CONTROLLER_H
+#define CONTROLLER_H
 
 #include <ns3/ofswitch13-module.h>
 
@@ -57,4 +57,4 @@ private:
     IpMacMap_t m_arpTable;
 };
 
-#endif /* QOS_CONTROLLER_H */
+#endif /* CONTROLLER_H */
