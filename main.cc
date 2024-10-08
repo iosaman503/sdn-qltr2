@@ -74,20 +74,22 @@ int main(int argc, char* argv[])
     //     csmaHelper.EnablePcap("client", clientDevices); // Capture client traffic
     //     csmaHelper.EnablePcap("switch", switchNodes);   // Capture switch traffic
     // }
-  if (trace)
+ if (trace)
 {
     std::cout << "Tracing enabled. Pcap files will be created." << std::endl;
 
-    // Enable OpenFlow and CSMA pcap
-    ofQosHelper->EnableOpenFlowPcap("openflow"); 
-    csmaHelper.EnablePcap("server", serverDevices.Get(0)); // Server pcap
-    csmaHelper.EnablePcap("client", clientDevices.Get(0));  // Client pcap
-    csmaHelper.EnablePcap("switch", switchNodes.Get(0));    // Switch pcap
+    ofQosHelper->EnableOpenFlowPcap("openflow"); // OpenFlow switch traffic
+    
+    // Get the NetDevice associated with the server and client nodes
+    csmaHelper.EnablePcap("server", serverDevices.Get(0)); // Capture server traffic
+    csmaHelper.EnablePcap("client", clientDevices.Get(0));  // Capture client traffic
+    
+    // Get the NetDevice associated with switch nodes
+    csmaHelper.EnablePcap("switch", switch0Ports.Get(0));    // Capture switch traffic (Switch 0)
+    csmaHelper.EnablePcap("switch", switch1Ports.Get(0));    // Capture switch traffic (Switch 1)
+    csmaHelper.EnablePcap("switch", switch2Ports.Get(0));    // Capture switch traffic (Switch 2)
 }
-else
-{
-    std::cout << "Tracing disabled." << std::endl;
-}
+
 
 
 
