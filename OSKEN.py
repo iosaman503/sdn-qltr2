@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 from os_ken.base import app_manager
 from os_ken.controller import ofp_event
 from os_ken.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
@@ -138,19 +140,41 @@ class SDNQLTRController(app_manager.OSKenApp):
         req = parser.OFPFlowStatsRequest(datapath)
         datapath.send_msg(req)
 
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    def flow_stats_reply_handler(self, ev):
-        body = ev.msg.body
-        total_packets = 0
-        total_bytes = 0
-        total_duration = 0
+    # @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    # def flow_stats_reply_handler(self, ev):
+    #     body = ev.msg.body
+    #     total_packets = 0
+    #     total_bytes = 0
+    #     total_duration = 0
 
-        for stat in body:
+    #     for stat in body:
+    #         total_packets += stat.packet_count
+    #         total_bytes += stat.byte_count
+    #         total_duration += stat.duration_sec
+
+    #     self.calculate_network_parameters(total_packets, total_bytes, total_duration)
+@set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+def flow_stats_reply_handler(self, ev):
+    body = ev.msg.body
+    if not body:
+        self.logger.warning("No flow stats received.")
+        return  # Exit if there are no stats
+
+    total_packets = 0
+    total_bytes = 0
+    total_duration = 0
+
+    for stat in body:
+        if stat.packet_count is not None and stat.byte_count is not None:
             total_packets += stat.packet_count
             total_bytes += stat.byte_count
             total_duration += stat.duration_sec
 
+    if total_duration > 0:
         self.calculate_network_parameters(total_packets, total_bytes, total_duration)
+    else:
+        self.logger.warning("Total duration is 0, cannot calculate parameters.")
+
 
     def calculate_network_parameters(self, total_packets, total_bytes, total_duration):
         # Calculate throughput, efficiency, and packet delivery ratio
