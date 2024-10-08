@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2016 University of Campinas (Unicamp)
+ * Copyright (c) 2017 University of Campinas (Unicamp)
+ *               2020 Federal University of Juiz de Fora (UFJF)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,60 +16,62 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Luciano Jerez Chaves <ljerezchaves@gmail.com>
+ *         Arthur Boechat Mazzi <arthurmazzi@ice.ufjf.br>
  */
 
 /*
- * - This is the internal network of an organization.
- * - 2 servers and N client nodes are located far from each other.
- * - Between border and aggregation switches there are two narrowband links of
- *   10 Mbps each. Other local connections have links of 100 Mbps.
- * - The default learning application manages the client switch.
- * - An specialized OpenFlow QoS controller is used to manage the border and
- *   aggregation switches, balancing traffic among internal servers and
- *   aggregating narrowband links to increase throughput.
+ * There are N switches connected in line and managed by an external controller.
+ * There are M hosts equally distributed among the switches.
+ * Random pings among hosts.
  *
- *                          QoS controller       Learning controller
- *                                |                       |
- *                         +--------------+               |
- *  +----------+           |              |               |           +----------+
- *  | Server 0 | ==== +--------+      +--------+      +--------+ ==== | Client 0 |
- *  +----------+      | Border | ~~~~ | Aggreg |      | Client |      +----------+
- *  +----------+      | Switch | ~~~~ | Switch | ==== | Switch |      +----------+
- *  | Server 1 | ==== +--------+      +--------+      +--------+ ==== | Client N |
- *  +----------+                 2x10            100                  +----------+
- *                               Mbps            Mbps
- **/
+ *               External controller
+ *                       |
+ *               +----------------+-------- ... --------+
+ *               |                |                     |
+ *         +----------+     +----------+           +----------+
+ *         | Switch 1 | === | Switch 2 | == ... == | Switch N |
+ *         +----------+     +----------+           +----------+
+ *              ||               ||                     ||
+ *            Hosts            Hosts                  Hosts
+ *          1, N+1, ...      2, N+2, ...            N, 2N, ...
+ */
 
-#include "qos-controller.h"
-
-#include <ns3/applications-module.h>
 #include <ns3/core-module.h>
 #include <ns3/csma-module.h>
+#include <ns3/internet-apps-module.h>
 #include <ns3/internet-module.h>
 #include <ns3/network-module.h>
 #include <ns3/ofswitch13-module.h>
+#include <ns3/tap-bridge-module.h>
 
 using namespace ns3;
 
 int
 main(int argc, char* argv[])
 {
-    uint16_t clients = 2;
-    uint16_t simTime = 10;
+    uint16_t simTime = 100;
     bool verbose = false;
-    bool trace = true;
+    bool trace = false;
+    uint16_t numHosts = 20;
+    uint16_t numSwitches = 3;
+    uint16_t numPings = 20;
+    uint16_t pingTime = 10;
 
     // Configure command line parameters
     CommandLine cmd;
-    cmd.AddValue("clients", "Number of client nodes", clients);
     cmd.AddValue("simTime", "Simulation time (seconds)", simTime);
     cmd.AddValue("verbose", "Enable verbose output", verbose);
     cmd.AddValue("trace", "Enable datapath stats and pcap traces", trace);
+    cmd.AddValue("numHosts", "Number of hosts in the simulation", numHosts);
+    cmd.AddValue("numSwitches", "Number of switches in the simulation", numSwitches);
+    cmd.AddValue("numPings", "Number of ping apps int the simulation", numPings);
+    cmd.AddValue("pingTime", "Ping time (seconds)", pingTime);
     cmd.Parse(argc, argv);
 
     if (verbose)
     {
         OFSwitch13Helper::EnableDatapathLogs();
+        LogComponentEnable("OFSwitch13Interface", LOG_LEVEL_ALL);
         LogComponentEnable("OFSwitch13Device", LOG_LEVEL_ALL);
         LogComponentEnable("OFSwitch13Port", LOG_LEVEL_ALL);
         LogComponentEnable("OFSwitch13Queue", LOG_LEVEL_ALL);
@@ -77,159 +80,120 @@ main(int argc, char* argv[])
         LogComponentEnable("OFSwitch13LearningController", LOG_LEVEL_ALL);
         LogComponentEnable("OFSwitch13Helper", LOG_LEVEL_ALL);
         LogComponentEnable("OFSwitch13InternalHelper", LOG_LEVEL_ALL);
-        LogComponentEnable("QosController", LOG_LEVEL_ALL);
     }
 
-    // Configure dedicated connections between controller and switches
-    Config::SetDefault("ns3::OFSwitch13Helper::ChannelType",
-                       EnumValue(OFSwitch13Helper::DEDICATED_CSMA));
 
-    // Increase TCP MSS for larger packets
-    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(1400));
+    // Set simulator to real time mode
+    GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
 
-    // Discard the first MAC address ("00:00:00:00:00:01") which will be used by
-    // the border switch in association with the first IP address ("10.1.1.1")
-    // for the Internet service.
-    Mac48Address::Allocate();
+    // Create host nodes
+    NodeContainer hosts;
+    hosts.Create(numHosts);
 
-    // Create nodes for servers, switches, controllers and clients
-    NodeContainer serverNodes;
-    NodeContainer switchNodes;
-    NodeContainer controllerNodes;
-    NodeContainer clientNodes;
-    serverNodes.Create(2);
-    switchNodes.Create(3);
-    controllerNodes.Create(2);
-    clientNodes.Create(clients);
+    // Create switch nodes
+    NodeContainer switches;
+    switches.Create(numSwitches);
 
-    // Create device containers
-    NetDeviceContainer serverDevices;
-    NetDeviceContainer clientDevices;
-    NetDeviceContainer switch0Ports;
-    NetDeviceContainer switch1Ports;
-    NetDeviceContainer switch2Ports;
-    NetDeviceContainer link;
-
-    // Create two 10Mbps connections between border and aggregation switches
+    // Use the CsmaHelper to connect host and switch
     CsmaHelper csmaHelper;
-    csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("5Kbps")));
+    csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("100Mbps")));
+    csmaHelper.SetChannelAttribute("Delay", TimeValue(MilliSeconds(2)));
 
-    link = csmaHelper.Install(NodeContainer(switchNodes.Get(0), switchNodes.Get(1)));
-    switch0Ports.Add(link.Get(0));
-    switch1Ports.Add(link.Get(1));
-
-    link = csmaHelper.Install(NodeContainer(switchNodes.Get(0), switchNodes.Get(1)));
-    switch0Ports.Add(link.Get(0));
-    switch1Ports.Add(link.Get(1));
-
-    // Configure the CsmaHelper for 100Mbps connections
-    csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("5Kbps")));
-
-    // Connect aggregation switch to client switch
-    link = csmaHelper.Install(NodeContainer(switchNodes.Get(1), switchNodes.Get(2)));
-    switch1Ports.Add(link.Get(0));
-    switch2Ports.Add(link.Get(1));
-
-    // Connect servers to border switch
-    link = csmaHelper.Install(NodeContainer(serverNodes.Get(0), switchNodes.Get(0)));
-    serverDevices.Add(link.Get(0));
-    switch0Ports.Add(link.Get(1));
-
-    link = csmaHelper.Install(NodeContainer(serverNodes.Get(1), switchNodes.Get(0)));
-    serverDevices.Add(link.Get(0));
-    switch0Ports.Add(link.Get(1));
-
-    // Connect client nodes to client switch
-    for (size_t i = 0; i < clients; i++)
+    NodeContainer pair;
+    NetDeviceContainer pairDevs;
+    NetDeviceContainer hostDevices;
+    NetDeviceContainer switchPorts[numSwitches];
+    for (int i = 0; i < numSwitches; i++)
     {
-        link = csmaHelper.Install(NodeContainer(clientNodes.Get(i), switchNodes.Get(2)));
-        clientDevices.Add(link.Get(0));
-        switch2Ports.Add(link.Get(1));
+        switchPorts[i] = NetDeviceContainer();
     }
 
-    // Configure OpenFlow QoS controller for border and aggregation switches
-    // (#0 and #1) into controller node 0.
-    Ptr<OFSwitch13InternalHelper> ofQosHelper = CreateObject<OFSwitch13InternalHelper>();
-    Ptr<QosController> qosCtrl = CreateObject<QosController>();
-    ofQosHelper->InstallController(controllerNodes.Get(0), qosCtrl);
+    // Connect hosts to switches in round robin
+    for (size_t i = 0; i < numHosts; i++)
+    {
+        int j = i % numSwitches;
+        pair = NodeContainer(hosts.Get(i), switches.Get(j));
+        pairDevs = csmaHelper.Install(pair);
+        hostDevices.Add(pairDevs.Get(0));
+        switchPorts[j].Add(pairDevs.Get(1));
+    }
 
-    // Configure OpenFlow learning controller for client switch (#2) into
-    // controller node 1
-    Ptr<OFSwitch13InternalHelper> ofLearningHelper = CreateObject<OFSwitch13InternalHelper>();
-    Ptr<OFSwitch13LearningController> learnCtrl = CreateObject<OFSwitch13LearningController>();
-    ofLearningHelper->InstallController(controllerNodes.Get(1), learnCtrl);
+    // Connect the switches in chain
+    for (int i = 0; i < numSwitches - 1; i++)
+    {
+        pair = NodeContainer(switches.Get(i), switches.Get(i + 1));
+        pairDevs = csmaHelper.Install(pair);
+        switchPorts[i].Add(pairDevs.Get(0));
+        switchPorts[i + 1].Add(pairDevs.Get(1));
+    }
 
-    // Install OpenFlow switches 0 and 1 with border controller
-    OFSwitch13DeviceContainer ofSwitchDevices;
-    ofSwitchDevices.Add(ofQosHelper->InstallSwitch(switchNodes.Get(0), switch0Ports));
-    ofSwitchDevices.Add(ofQosHelper->InstallSwitch(switchNodes.Get(1), switch1Ports));
-    ofQosHelper->CreateOpenFlowChannels();
+    // Create the controller node
+    Ptr<Node> controllerNode = CreateObject<Node>();
 
-    // Install OpenFlow switches 2 with learning controller
-    ofSwitchDevices.Add(ofLearningHelper->InstallSwitch(switchNodes.Get(2), switch2Ports));
-    ofLearningHelper->CreateOpenFlowChannels();
+    // Configure the OpenFlow network domain using an external controller
+    Ptr<OFSwitch13ExternalHelper> of13Helper = CreateObject<OFSwitch13ExternalHelper>();
+    Ptr<NetDevice> ctrlDev = of13Helper->InstallExternalController(controllerNode);
+    for (int i = 0; i < numSwitches; i++)
+    {
+        of13Helper->InstallSwitch(switches.Get(i), switchPorts[i]);
+    }
+    of13Helper->CreateOpenFlowChannels();
+
+    // TapBridge the controller device to local machine
+    // The default configuration expects a controller on local port 6653
+    TapBridgeHelper tapBridge;
+    tapBridge.SetAttribute("Mode", StringValue("ConfigureLocal"));
+    tapBridge.SetAttribute("DeviceName", StringValue("ctrl"));
+    tapBridge.Install(controllerNode, ctrlDev);
 
     // Install the TCP/IP stack into hosts nodes
     InternetStackHelper internet;
-    internet.Install(serverNodes);
-    internet.Install(clientNodes);
+    internet.Install(hosts);
 
-    // Set IPv4 server and client addresses (discarding first server address)
-    Ipv4AddressHelper ipv4switches;
-    Ipv4InterfaceContainer internetIpIfaces;
-    ipv4switches.SetBase("10.1.0.0", "255.255.0.0", "0.0.1.2");
-    internetIpIfaces = ipv4switches.Assign(serverDevices);
-    ipv4switches.SetBase("10.1.0.0", "255.255.0.0", "0.0.2.1");
-    internetIpIfaces = ipv4switches.Assign(clientDevices);
+    // Set IPv4 host addresses
+    Ipv4AddressHelper ipv4Helper;
+    Ipv4InterfaceContainer hostIpIfaces;
+    ipv4Helper.SetBase("10.1.1.0", "255.255.255.0");
+    hostIpIfaces = ipv4Helper.Assign(hostDevices);
 
-    // Configure applications for traffic generation. Client hosts send traffic
-    // to server. The server IP address 10.1.1.1 is attended by the border
-    // switch, which redirects the traffic to internal servers, equalizing the
-    // number of connections to each server.
-    Ipv4Address serverAddr("10.1.1.1");
+    // Random number generators for ping applications
+    Ptr<UniformRandomVariable> randomHostRng = CreateObject<UniformRandomVariable>();
+    randomHostRng->SetAttribute("Min", DoubleValue(0));
+    randomHostRng->SetAttribute("Max", DoubleValue(numHosts - 1));
 
-    // Installing a sink application at server nodes
-    PacketSinkHelper sinkHelper("ns3::TcpSocketFactory",
-                                InetSocketAddress(Ipv4Address::GetAny(), 9));
-    ApplicationContainer sinkApps = sinkHelper.Install(serverNodes);
-    sinkApps.Start(Seconds(0));
+    Ptr<ExponentialRandomVariable> randomStartRng = CreateObject<ExponentialRandomVariable>();
+    randomStartRng->SetAttribute("Mean", DoubleValue(20));
 
-    // Installing a sender application at client nodes
-    BulkSendHelper senderHelper("ns3::TcpSocketFactory", InetSocketAddress(serverAddr, 9));
-    ApplicationContainer senderApps = senderHelper.Install(clientNodes);
-
-    // Get random start times
-    Ptr<UniformRandomVariable> rngStart = CreateObject<UniformRandomVariable>();
-    rngStart->SetAttribute("Min", DoubleValue(0));
-    rngStart->SetAttribute("Max", DoubleValue(1));
-    ApplicationContainer::Iterator appIt;
-    for (appIt = senderApps.Begin(); appIt != senderApps.End(); ++appIt)
+    // Configure ping application between random hosts
+    Time startTime = Seconds(1);
+    for (int i = 0; i < numPings; i++)
     {
-        (*appIt)->SetStartTime(Seconds(rngStart->GetValue()));
+        int srcHost = randomHostRng->GetInteger();
+        int dstHost = randomHostRng->GetInteger();
+
+        PingHelper pingHelper(Ipv4Address(hostIpIfaces.GetAddress(dstHost)));
+        pingHelper.SetAttribute("VerboseMode", EnumValue(Ping::VerboseMode::VERBOSE));
+        Ptr<Application> pingApp = pingHelper.Install(hosts.Get(srcHost)).Get(0);
+
+        startTime += Seconds(std::abs(randomStartRng->GetValue()));
+        pingApp->SetStartTime(startTime);
+        pingApp->SetStopTime(startTime + Seconds(pingTime));
     }
 
-    // Enable pcap traces and datapath stats
+    // Enable datapath stats and pcap traces at hosts, switch(es), and controller(s)
     if (trace)
     {
-        ofLearningHelper->EnableOpenFlowPcap("openflow");
-        ofLearningHelper->EnableDatapathStats("switch-stats");
-        ofQosHelper->EnableOpenFlowPcap("openflow");
-        ofQosHelper->EnableDatapathStats("switch-stats");
-        csmaHelper.EnablePcap("switch", switchNodes, true);
-        csmaHelper.EnablePcap("server", serverDevices);
-        csmaHelper.EnablePcap("client", clientDevices);
+        of13Helper->EnableOpenFlowPcap("openflow");
+        of13Helper->EnableDatapathStats("switch-stats");
+        csmaHelper.EnablePcap("host", hostDevices);
+        for (int i = 0; i < numSwitches; i++)
+        {
+            csmaHelper.EnablePcap("switch", switchPorts[i], true);
+        }
     }
 
     // Run the simulation
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
     Simulator::Destroy();
-
-    // Dump total of received bytes by sink applications
-    Ptr<PacketSink> sink1 = DynamicCast<PacketSink>(sinkApps.Get(0));
-    Ptr<PacketSink> sink2 = DynamicCast<PacketSink>(sinkApps.Get(1));
-    std::cout << "Bytes received by server 1: " << sink1->GetTotalRx() << " ("
-              << (8. * sink1->GetTotalRx()) / 1000 / simTime << " Kbps)" << std::endl;
-    std::cout << "Bytes received by server 2: " << sink2->GetTotalRx() << " ("
-              << (8. * sink2->GetTotalRx()) / 1000 / simTime << " Kbps)" << std::endl;
 }
