@@ -2,18 +2,19 @@
 #define CONTROLLER_H
 
 #include <ns3/ofswitch13-module.h>
+#include <map>
 
 using namespace ns3;
 
 class QosController : public OFSwitch13Controller
 {
 public:
-    QosController();           //!< Default constructor.
-    ~QosController() override; //!< Destructor.
+    QosController();
+    ~QosController() override;
 
-    void DoDispose() override; //!< Destructor implementation.
+    void DoDispose() override;
 
-    static TypeId GetTypeId(); //!< Register this type.
+    static TypeId GetTypeId();
 
     // Handle packet-in message
     ofl_err HandlePacketIn(struct ofl_msg_packet_in* msg,
@@ -21,40 +22,27 @@ public:
                            uint32_t xid) override;
 
 protected:
-    void HandshakeSuccessful(Ptr<const RemoteSwitch> swtch) override; //!< Handshake success.
+    void HandshakeSuccessful(Ptr<const RemoteSwitch> swtch) override;
 
 private:
-    void ConfigureBorderSwitch(Ptr<const RemoteSwitch> swtch); //!< Configure the border switch.
-    void ConfigureAggregationSwitch(Ptr<const RemoteSwitch> swtch); //!< Configure aggregation switch.
+    void ConfigureSwitch(Ptr<const RemoteSwitch> swtch);
 
-    // ARP handling and connection request handling
-    ofl_err HandleArpPacketIn(struct ofl_msg_packet_in* msg,
-                              Ptr<const RemoteSwitch> swtch,
-                              uint32_t xid);
-    ofl_err HandleConnectionRequest(struct ofl_msg_packet_in* msg,
-                                    Ptr<const RemoteSwitch> swtch,
-                                    uint32_t xid);
+    // Q-learning related functions
+    void UpdateQTable(Ipv4Address src, Ipv4Address dst, double reward);
+    Ipv4Address SelectNextHop(Ipv4Address src);
 
-    Ipv4Address ExtractIpv4Address(uint32_t oxm_of, struct ofl_match* match); //!< Extract IPv4 address from match.
-    
-    // Create ARP packets
-    Ptr<Packet> CreateArpRequest(Mac48Address srcMac, Ipv4Address srcIp, Ipv4Address dstIp);
-    Ptr<Packet> CreateArpReply(Mac48Address srcMac, Ipv4Address srcIp, Mac48Address dstMac, Ipv4Address dstIp);
+    // Trust-related functions
+    void UpdateTrustTable(Ipv4Address node, double trustValue);
+    double GetTrustValue(Ipv4Address node);
 
-    void SaveArpEntry(Ipv4Address ipAddr, Mac48Address macAddr); //!< Save ARP entries.
-    Mac48Address GetArpEntry(Ipv4Address ip); //!< Get ARP entry from the table.
+    // Data structures for Q-learning and trust
+    std::map<std::pair<Ipv4Address, Ipv4Address>, double> m_qTable; // Q-table
+    std::map<Ipv4Address, double> m_trustTable; // Trust table for each node
 
-    // QoS attributes
-    Address m_serverIpAddress;
-    uint16_t m_serverTcpPort;
-    Address m_serverMacAddress;
-    bool m_meterEnable;
-    DataRate m_meterRate;
-    bool m_linkAggregation;
-
-    // ARP Table
-    typedef std::map<Ipv4Address, Mac48Address> IpMacMap_t;
-    IpMacMap_t m_arpTable;
+    // Parameters for Q-learning
+    double m_learningRate;
+    double m_discountFactor;
+    double m_explorationRate;
 };
 
 #endif /* CONTROLLER_H */
