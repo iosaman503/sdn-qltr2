@@ -67,20 +67,20 @@ int main(int argc, char* argv[])
     internet.Install(clientNodes);
 
     // Check if pcap traces are enabled
-    // if (trace)
-    // {
-    //     ofQosHelper->EnableOpenFlowPcap("openflow"); // Capture OpenFlow switch traffic
-    //     csmaHelper.EnablePcap("server", serverDevices); // Capture server traffic
-    //     csmaHelper.EnablePcap("client", clientDevices); // Capture client traffic
-    //     csmaHelper.EnablePcap("switch", switchNodes);   // Capture switch traffic
-    // }
     if (trace)
-{
-    ofQosHelper->EnableOpenFlowPcap("openflow"); // OpenFlow switch traffic
-    csmaHelper.EnablePcap("server", serverDevices.Get(0), true, true); // Explicit server pcap
-    csmaHelper.EnablePcap("client", clientDevices.Get(0), true, true); // Explicit client pcap
-    csmaHelper.EnablePcap("switch", switchNodes.Get(0), true, true);   // Explicit switch pcap
-}
+    {
+        ofQosHelper->EnableOpenFlowPcap("openflow"); // Capture OpenFlow switch traffic
+        csmaHelper.EnablePcap("server", serverDevices); // Capture server traffic
+        csmaHelper.EnablePcap("client", clientDevices); // Capture client traffic
+        csmaHelper.EnablePcap("switch", switchNodes);   // Capture switch traffic
+    }
+    if (trace)
+// {
+//     ofQosHelper->EnableOpenFlowPcap("openflow"); // OpenFlow switch traffic
+//     csmaHelper.EnablePcap("server", serverDevices.Get(0), true, true); // Explicit server pcap
+//     csmaHelper.EnablePcap("client", clientDevices.Get(0), true, true); // Explicit client pcap
+//     csmaHelper.EnablePcap("switch", switchNodes.Get(0), true, true);   // Explicit switch pcap
+// }
 
 
     Simulator::Stop(Seconds(simTime));
