@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
         csmaHelper.EnablePcap("client", clientDevices); // Capture client traffic
         csmaHelper.EnablePcap("switch", switchNodes);   // Capture switch traffic
     }
-    if (trace)
+    //if (trace)
 // {
 //     ofQosHelper->EnableOpenFlowPcap("openflow"); // OpenFlow switch traffic
 //     csmaHelper.EnablePcap("server", serverDevices.Get(0), true, true); // Explicit server pcap
