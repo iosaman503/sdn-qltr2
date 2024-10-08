@@ -5,6 +5,7 @@
 #include <ns3/internet-module.h>
 #include <ns3/network-module.h>
 #include <ns3/ofswitch13-module.h>
+#include <ns3/aqua-sim-ng-module.h> // AquaSim module for underwater communication
 
 using namespace ns3;
 
@@ -36,11 +37,17 @@ int main(int argc, char* argv[])
     controllerNodes.Create(2);
     clientNodes.Create(clients);
 
+    // Set up AquaSim devices (for underwater acoustic communication)
+    AquaSimHelper aquaSimHelper;
+    aquaSimHelper.SetChannelAttribute("Frequency", DoubleValue(25.0)); // Example frequency setup
+
+    // Set up Csma devices (wired network)
     CsmaHelper csmaHelper;
     csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("100Mbps")));
     
     NetDeviceContainer link, switch0Ports, switch1Ports, switch2Ports, serverDevices, clientDevices;
 
+    // Connect switches with AquaSim and Csma
     link = csmaHelper.Install(NodeContainer(switchNodes.Get(0), switchNodes.Get(1)));
     switch0Ports.Add(link.Get(0)); switch1Ports.Add(link.Get(1));
     link = csmaHelper.Install(NodeContainer(switchNodes.Get(1), switchNodes.Get(2)));
@@ -48,10 +55,11 @@ int main(int argc, char* argv[])
 
     link = csmaHelper.Install(NodeContainer(serverNodes.Get(0), switchNodes.Get(0)));
     serverDevices.Add(link.Get(0)); switch0Ports.Add(link.Get(1));
-    
+
+    // Clients connected with AquaSim
     for (size_t i = 0; i < clients; i++)
     {
-        link = csmaHelper.Install(NodeContainer(clientNodes.Get(i), switchNodes.Get(2)));
+        link = aquaSimHelper.Install(NodeContainer(clientNodes.Get(i), switchNodes.Get(2)));
         clientDevices.Add(link.Get(0)); switch2Ports.Add(link.Get(1));
     }
 
@@ -66,32 +74,13 @@ int main(int argc, char* argv[])
     internet.Install(serverNodes);
     internet.Install(clientNodes);
 
-    // Check if pcap traces are enabled
-    // if (trace)
-    // {
-    //     ofQosHelper->EnableOpenFlowPcap("openflow"); // Capture OpenFlow switch traffic
-    //     csmaHelper.EnablePcap("server", serverDevices); // Capture server traffic
-    //     csmaHelper.EnablePcap("client", clientDevices); // Capture client traffic
-    //     csmaHelper.EnablePcap("switch", switchNodes);   // Capture switch traffic
-    // }
- if (trace)
-{
-    std::cout << "Tracing enabled. Pcap files will be created." << std::endl;
-
-    ofQosHelper->EnableOpenFlowPcap("openflow"); // OpenFlow switch traffic
-    
-    // Get the NetDevice associated with the server and client nodes
-    csmaHelper.EnablePcap("server", serverDevices.Get(0)); // Capture server traffic
-    csmaHelper.EnablePcap("client", clientDevices.Get(0));  // Capture client traffic
-    
-    // Get the NetDevice associated with switch nodes
-    csmaHelper.EnablePcap("switch", switch0Ports.Get(0));    // Capture switch traffic (Switch 0)
-    csmaHelper.EnablePcap("switch", switch1Ports.Get(0));    // Capture switch traffic (Switch 1)
-    csmaHelper.EnablePcap("switch", switch2Ports.Get(0));    // Capture switch traffic (Switch 2)
-}
-
-
-
+    if (trace)
+    {
+        ofQosHelper->EnableOpenFlowPcap("openflow"); // OpenFlow traffic
+        csmaHelper.EnablePcap("server", serverDevices.Get(0)); // Capture server traffic
+        csmaHelper.EnablePcap("client", clientDevices.Get(0));  // Capture client traffic
+        csmaHelper.EnablePcap("switch", switch0Ports.Get(0));    // Capture switch traffic
+    }
 
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
