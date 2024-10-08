@@ -1,4 +1,3 @@
-import eventlet
 eventlet.monkey_patch()
 from os_ken.base import app_manager
 from os_ken.controller import ofp_event
@@ -207,4 +206,3 @@ def flow_stats_reply_handler(self, ev):
 print("Starting OSKEN script")
 #AMAN'S CODE
 print("OS-KEN Run completed")
-
