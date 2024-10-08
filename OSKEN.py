@@ -1,3 +1,4 @@
+import eventlet
 eventlet.monkey_patch()
 from os_ken.base import app_manager
 from os_ken.controller import ofp_event
