@@ -5,9 +5,8 @@ from os_ken.controller import ofp_event
 from os_ken.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from os_ken.controller.handler import set_ev_cls
 from os_ken.ofproto import ofproto_v1_3
-from os_ken.lib.packet import packet, ethernet, ipv4, tcp, udp
+from os_ken.lib.packet import packet, ethernet, ipv4
 from os_ken.lib import hub
-import time
 import random
 
 class SDNQLTRController(app_manager.OSKenApp):
@@ -19,11 +18,10 @@ class SDNQLTRController(app_manager.OSKenApp):
         self.datapaths = {}
         self.trust_values = {}  # Trust values for each node
         self.q_values = {}      # Q-learning Q-values for each path
-        self.flow_stats = {}    # Flow statistics for throughput and efficiency calculation
         self.monitor_thread = hub.spawn(self._monitor)
         self.learning_rate = 0.5  # Learning rate for Q-learning
         self.discount_factor = 0.9  # Discount factor for Q-learning
-        self.exploration_rate = 0.3  # Exploration rate for Q-learning (trade-off between explore/exploit)
+        self.exploration_rate = 0.3  # Exploration rate for Q-learning
         print("SDNQLTRController initialized")
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -79,10 +77,18 @@ class SDNQLTRController(app_manager.OSKenApp):
         # Trust-based routing decision with Q-learning
         path = self.get_best_path(src, dst)
 
+        # Ensure that the path is valid before proceeding
+        if len(path) < 2:  # At least src and dst must be in the path
+            self.logger.warning("Invalid path selected: %s", path)
+            return
+
         # Install flow entries for the best path
         for i in range(len(path) - 1):
-            src_dp = self.datapaths[path[i]]
-            dst_dp = self.datapaths[path[i + 1]]
+            src_dp = self.datapaths.get(path[i])
+            dst_dp = self.datapaths.get(path[i + 1])
+            if src_dp is None or dst_dp is None:
+                self.logger.warning("One of the datapaths is not registered: %s -> %s", path[i], path[i + 1])
+                return
             out_port = self.get_out_port(src_dp, dst_dp)
             actions = [parser.OFPActionOutput(out_port)]
             match = parser.OFPMatch(in_port=in_port, eth_dst=eth.dst)
@@ -103,13 +109,13 @@ class SDNQLTRController(app_manager.OSKenApp):
         # Exploration vs Exploitation
         if random.uniform(0, 1) < self.exploration_rate:
             # Exploration: Select a random path
-            path = [src] + random.sample(list(self.datapaths.keys()), random.randint(1, 3)) + [dst]
+            path = [src] + random.sample(list(self.datapaths.keys()), min(random.randint(1, 3), len(self.datapaths))) + [dst]
         else:
             # Exploitation: Choose the path with the highest Q-value
             if self.q_values[src]:
                 best_q_value = max(self.q_values[src].values())
-                best_path = [k for k, v in self.q_values[src].items() if v == best_q_value]
-                path = [src] + best_path + [dst]
+                best_paths = [k for k, v in self.q_values[src].items() if v == best_q_value]
+                path = [src] + best_paths + [dst]
             else:
                 path = [src, dst]  # Fallback in case there are no Q-values
         return path
@@ -127,12 +133,8 @@ class SDNQLTRController(app_manager.OSKenApp):
 
     def get_out_port(self, src_dp, dst_dp):
         # This function now ensures we return correct ports based on topology
-        if src_dp.id == 1:
-            return 2  # Example: port 2 connects to switch 2
-        elif src_dp.id == 2:
-            return 3  # Example: port 3 connects to next hop
-        else:
-            return 1  # Default to port 1 if unknown
+        # Modify as per your actual topology
+        return 1  # Simplified for demonstration; replace with actual port logic.
 
     def _monitor(self):
         while True:
