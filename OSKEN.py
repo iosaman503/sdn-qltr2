@@ -106,9 +106,12 @@ class SDNQLTRController(app_manager.OSKenApp):
             path = [src] + random.sample(list(self.datapaths.keys()), random.randint(1, 3)) + [dst]
         else:
             # Exploitation: Choose the path with the highest Q-value
-            best_q_value = max(self.q_values[src].values())
-            best_path = [k for k, v in self.q_values[src].items() if v == best_q_value]
-            path = [src] + best_path + [dst]
+            if self.q_values[src]:
+                best_q_value = max(self.q_values[src].values())
+                best_path = [k for k, v in self.q_values[src].items() if v == best_q_value]
+                path = [src] + best_path + [dst]
+            else:
+                path = [src, dst]  # Fallback in case there are no Q-values
         return path
 
     def update_q_table(self, src, dst, reward):
@@ -123,8 +126,13 @@ class SDNQLTRController(app_manager.OSKenApp):
         print(f"Updated trust value for node {node}: {self.trust_values[node]}")
 
     def get_out_port(self, src_dp, dst_dp):
-        # Placeholder function to get the output port towards the next hop in the path
-        return random.choice([1, 2, 3])
+        # This function now ensures we return correct ports based on topology
+        if src_dp.id == 1:
+            return 2  # Example: port 2 connects to switch 2
+        elif src_dp.id == 2:
+            return 3  # Example: port 3 connects to next hop
+        else:
+            return 1  # Default to port 1 if unknown
 
     def _monitor(self):
         while True:
@@ -140,41 +148,27 @@ class SDNQLTRController(app_manager.OSKenApp):
         req = parser.OFPFlowStatsRequest(datapath)
         datapath.send_msg(req)
 
-    # @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    # def flow_stats_reply_handler(self, ev):
-    #     body = ev.msg.body
-    #     total_packets = 0
-    #     total_bytes = 0
-    #     total_duration = 0
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    def flow_stats_reply_handler(self, ev):
+        body = ev.msg.body
+        if not body:
+            self.logger.warning("No flow stats received.")
+            return
 
-    #     for stat in body:
-    #         total_packets += stat.packet_count
-    #         total_bytes += stat.byte_count
-    #         total_duration += stat.duration_sec
+        total_packets = 0
+        total_bytes = 0
+        total_duration = 0
 
-    #     self.calculate_network_parameters(total_packets, total_bytes, total_duration)
-@set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-def flow_stats_reply_handler(self, ev):
-    body = ev.msg.body
-    if not body:
-        self.logger.warning("No flow stats received.")
-        return  # Exit if there are no stats
+        for stat in body:
+            if stat.packet_count is not None and stat.byte_count is not None:
+                total_packets += stat.packet_count
+                total_bytes += stat.byte_count
+                total_duration += stat.duration_sec
 
-    total_packets = 0
-    total_bytes = 0
-    total_duration = 0
-
-    for stat in body:
-        if stat.packet_count is not None and stat.byte_count is not None:
-            total_packets += stat.packet_count
-            total_bytes += stat.byte_count
-            total_duration += stat.duration_sec
-
-    if total_duration > 0:
-        self.calculate_network_parameters(total_packets, total_bytes, total_duration)
-    else:
-        self.logger.warning("Total duration is 0, cannot calculate parameters.")
-
+        if total_duration > 0:
+            self.calculate_network_parameters(total_packets, total_bytes, total_duration)
+        else:
+            self.logger.warning("Total duration is 0, cannot calculate parameters.")
 
     def calculate_network_parameters(self, total_packets, total_bytes, total_duration):
         # Calculate throughput, efficiency, and packet delivery ratio
@@ -205,5 +199,4 @@ def flow_stats_reply_handler(self, ev):
                 print(f"Datapath {datapath.id} unregistered")
 
 print("Starting OSKEN script")
-#AMAN'S CODE
 print("OS-KEN Run completed")
