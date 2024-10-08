@@ -24,7 +24,7 @@ protected:
     void HandshakeSuccessful(Ptr<const RemoteSwitch> swtch) override; //!< Handshake success.
 
 private:
-    void ConfigureBorderSwitch(Ptr<const RemoteSwitch> swtch);   //!< Configure the border switch.
+    void ConfigureBorderSwitch(Ptr<const RemoteSwitch> swtch); //!< Configure the border switch.
     void ConfigureAggregationSwitch(Ptr<const RemoteSwitch> swtch); //!< Configure aggregation switch.
 
     // ARP handling and connection request handling
