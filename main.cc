@@ -56,7 +56,7 @@ main(int argc, char* argv[])
     uint16_t clients = 2;
     uint16_t simTime = 10;
     bool verbose = false;
-    bool trace = false;
+    bool trace = true;
 
     // Configure command line parameters
     CommandLine cmd;
