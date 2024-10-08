@@ -112,7 +112,7 @@ main(int argc, char* argv[])
 
     // Create two 10Mbps connections between border and aggregation switches
     CsmaHelper csmaHelper;
-    csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("10Mbps")));
+    csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("5Kbps")));
 
     link = csmaHelper.Install(NodeContainer(switchNodes.Get(0), switchNodes.Get(1)));
     switch0Ports.Add(link.Get(0));
@@ -123,7 +123,7 @@ main(int argc, char* argv[])
     switch1Ports.Add(link.Get(1));
 
     // Configure the CsmaHelper for 100Mbps connections
-    csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("100Mbps")));
+    csmaHelper.SetChannelAttribute("DataRate", DataRateValue(DataRate("5Kbps")));
 
     // Connect aggregation switch to client switch
     link = csmaHelper.Install(NodeContainer(switchNodes.Get(1), switchNodes.Get(2)));
@@ -229,7 +229,7 @@ main(int argc, char* argv[])
     Ptr<PacketSink> sink1 = DynamicCast<PacketSink>(sinkApps.Get(0));
     Ptr<PacketSink> sink2 = DynamicCast<PacketSink>(sinkApps.Get(1));
     std::cout << "Bytes received by server 1: " << sink1->GetTotalRx() << " ("
-              << (8. * sink1->GetTotalRx()) / 1000000 / simTime << " Mbps)" << std::endl;
+              << (8. * sink1->GetTotalRx()) / 1000 / simTime << " Kbps)" << std::endl;
     std::cout << "Bytes received by server 2: " << sink2->GetTotalRx() << " ("
-              << (8. * sink2->GetTotalRx()) / 1000000 / simTime << " Mbps)" << std::endl;
+              << (8. * sink2->GetTotalRx()) / 1000 / simTime << " Kbps)" << std::endl;
 }
