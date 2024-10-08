@@ -51,7 +51,7 @@ main(int argc, char* argv[])
 {
     uint16_t simTime = 100;
     bool verbose = false;
-    bool trace = false;
+    bool trace = true;
     uint16_t numHosts = 20;
     uint16_t numSwitches = 3;
     uint16_t numPings = 20;
