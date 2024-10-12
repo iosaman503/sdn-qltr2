@@ -71,10 +71,10 @@ class SDNQLTRController(app_manager.OSKenApp):
 
         self.logger.info("Packet in %s %s %s %s", dpid, src, dst, in_port)
 
-        # Learn a MAC address to avoid FLOOD next time.
+        # Learn a MAC address to avoid FLOOD next time
         self.mac_to_port[dpid][src] = in_port
 
-        # Trust-based routing decision with Q-learning
+        # Simplified routing decision
         path = self.get_best_path(src, dst)
 
         if len(path) < 2:
@@ -104,17 +104,8 @@ class SDNQLTRController(app_manager.OSKenApp):
         if dst not in self.q_values[src]:
             self.q_values[src][dst] = random.random()
 
-        # Exploration vs Exploitation
-        if random.uniform(0, 1) < self.exploration_rate:
-            # Exploration: Select a random path
-            path = [src] + random.sample(list(self.datapaths.keys()), min(random.randint(1, 3), len(self.datapaths))) + [dst]
-        else:
-            if self.q_values[src]:
-                best_q_value = max(self.q_values[src].values())
-                best_paths = [k for k, v in self.q_values[src].items() if v == best_q_value]
-                path = [src] + best_paths + [dst]
-            else:
-                path = [src, dst]
+        # Choose a direct path for simplicity
+        path = [src, dst]
         return path
 
     def update_q_table(self, src, dst, reward):
@@ -122,12 +113,9 @@ class SDNQLTRController(app_manager.OSKenApp):
         self.q_values[src][dst] = old_value + self.learning_rate * (reward + self.discount_factor * max(self.q_values.get(dst, {}).values(), default=0) - old_value)
         print(f"Updated Q-value for path {src} -> {dst}: {self.q_values[src][dst]}")
 
-    def update_trust(self, node, success_rate):
-        self.trust_values[node] = 0.9 * self.trust_values.get(node, 1.0) + 0.1 * success_rate
-        print(f"Updated trust value for node {node}: {self.trust_values[node]}")
-
     def get_out_port(self, src_dp, dst_dp):
-        return 1  # Replace with logic for correct port based on topology
+        # Simplified logic for selecting ports
+        return 1  # Assuming all packets are forwarded via port 1 for demonstration purposes
 
     def _monitor(self):
         while True:
@@ -156,4 +144,3 @@ class SDNQLTRController(app_manager.OSKenApp):
                 self.logger.info('Unregister datapath: %016x', datapath.id)
                 del self.datapaths[datapath.id]
                 print(f"Datapath {datapath.id} unregistered")
-
