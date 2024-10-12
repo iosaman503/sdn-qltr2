@@ -71,7 +71,7 @@ class SDNQLTRController(app_manager.OSKenApp):
 
         self.logger.info("Packet in %s %s %s %s", dpid, src, dst, in_port)
 
-        # learn a mac address to avoid FLOOD next time.
+        # Learn a MAC address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
 
         # Trust-based routing decision with Q-learning
@@ -127,7 +127,7 @@ class SDNQLTRController(app_manager.OSKenApp):
         print(f"Updated trust value for node {node}: {self.trust_values[node]}")
 
     def get_out_port(self, src_dp, dst_dp):
-        return 1  # Replace with logic for correct port
+        return 1  # Replace with logic for correct port based on topology
 
     def _monitor(self):
         while True:
@@ -142,37 +142,6 @@ class SDNQLTRController(app_manager.OSKenApp):
 
         req = parser.OFPFlowStatsRequest(datapath)
         datapath.send_msg(req)
-
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    def flow_stats_reply_handler(self, ev):
-        body = ev.msg.body
-        if not body:
-            self.logger.warning("No flow stats received.")
-            return
-
-        total_packets = 0
-        total_bytes = 0
-        total_duration = 0
-
-        for stat in body:
-            if stat.packet_count is not None and stat.byte_count is not None:
-                total_packets += stat.packet_count
-                total_bytes += stat.byte_count
-                total_duration += stat.duration_sec
-
-        if total_duration > 0:
-            self.calculate_network_parameters(total_packets, total_bytes, total_duration)
-        else:
-            self.logger.warning("Total duration is 0, cannot calculate parameters.")
-
-    # def calculate_network_parameters(self, total_packets, total_bytes, total_duration):
-    #     throughput = total_bytes / total_duration if total_duration > 0 else 0
-    #     efficiency = total_packets / total_duration if total_duration > 0 else 0
-    #     packet_delivery_ratio = total_packets / (total_packets + 10)
-
-    #     self.logger.info("Network Throughput: %s bytes/sec", throughput)
-    #     self.logger.info("Network Efficiency: %s packets/sec", efficiency)
-    #     self.logger.info("Packet Delivery Ratio: %s", packet_delivery_ratio)
 
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, CONFIG_DISPATCHER])
     def _state_change_handler(self, ev):
