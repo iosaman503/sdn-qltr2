@@ -19,9 +19,9 @@ class SDNQLTRController(app_manager.OSKenApp):
         self.trust_values = {}  # Trust values for each node
         self.q_values = {}      # Q-learning Q-values for each path
         self.monitor_thread = hub.spawn(self._monitor)
-        self.learning_rate = 0.5  # Learning rate for Q-learning
-        self.discount_factor = 0.9  # Discount factor for Q-learning
-        self.exploration_rate = 0.3  # Exploration rate for Q-learning
+        self.learning_rate = 0.5
+        self.discount_factor = 0.9
+        self.exploration_rate = 0.3
         print("SDNQLTRController initialized")
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -33,7 +33,7 @@ class SDNQLTRController(app_manager.OSKenApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
-        self.datapaths[datapath.id] = datapath  # Register the datapath
+        self.datapaths[datapath.id] = datapath
         print(f"Switch features handler: Added default flow for datapath {datapath.id}")
 
     def add_flow(self, datapath, priority, match, actions):
@@ -77,8 +77,7 @@ class SDNQLTRController(app_manager.OSKenApp):
         # Trust-based routing decision with Q-learning
         path = self.get_best_path(src, dst)
 
-        # Ensure that the path is valid before proceeding
-        if len(path) < 2:  # At least src and dst must be in the path
+        if len(path) < 2:
             self.logger.warning("Invalid path selected: %s", path)
             return
 
@@ -100,41 +99,35 @@ class SDNQLTRController(app_manager.OSKenApp):
         datapath.send_msg(out)
 
     def get_best_path(self, src, dst):
-        # Q-Learning based path selection
         if src not in self.q_values:
             self.q_values[src] = {}
         if dst not in self.q_values[src]:
-            self.q_values[src][dst] = random.random()  # Initialize Q-values with random values
+            self.q_values[src][dst] = random.random()
 
         # Exploration vs Exploitation
         if random.uniform(0, 1) < self.exploration_rate:
             # Exploration: Select a random path
             path = [src] + random.sample(list(self.datapaths.keys()), min(random.randint(1, 3), len(self.datapaths))) + [dst]
         else:
-            # Exploitation: Choose the path with the highest Q-value
             if self.q_values[src]:
                 best_q_value = max(self.q_values[src].values())
                 best_paths = [k for k, v in self.q_values[src].items() if v == best_q_value]
                 path = [src] + best_paths + [dst]
             else:
-                path = [src, dst]  # Fallback in case there are no Q-values
+                path = [src, dst]
         return path
 
     def update_q_table(self, src, dst, reward):
-        # Update the Q-table using Q-learning formula
         old_value = self.q_values[src].get(dst, 0)
         self.q_values[src][dst] = old_value + self.learning_rate * (reward + self.discount_factor * max(self.q_values.get(dst, {}).values(), default=0) - old_value)
         print(f"Updated Q-value for path {src} -> {dst}: {self.q_values[src][dst]}")
 
     def update_trust(self, node, success_rate):
-        # Update the trust values for a node based on success rate
         self.trust_values[node] = 0.9 * self.trust_values.get(node, 1.0) + 0.1 * success_rate
         print(f"Updated trust value for node {node}: {self.trust_values[node]}")
 
     def get_out_port(self, src_dp, dst_dp):
-        # This function now ensures we return correct ports based on topology
-        # Modify as per your actual topology
-        return 1  # Simplified for demonstration; replace with actual port logic.
+        return 1  # Replace with logic for correct port
 
     def _monitor(self):
         while True:
@@ -173,18 +166,13 @@ class SDNQLTRController(app_manager.OSKenApp):
             self.logger.warning("Total duration is 0, cannot calculate parameters.")
 
     def calculate_network_parameters(self, total_packets, total_bytes, total_duration):
-        # Calculate throughput, efficiency, and packet delivery ratio
         throughput = total_bytes / total_duration if total_duration > 0 else 0
         efficiency = total_packets / total_duration if total_duration > 0 else 0
-        packet_delivery_ratio = total_packets / (total_packets + 10)  # Assume 10 lost packets for example
+        packet_delivery_ratio = total_packets / (total_packets + 10)
 
         self.logger.info("Network Throughput: %s bytes/sec", throughput)
         self.logger.info("Network Efficiency: %s packets/sec", efficiency)
         self.logger.info("Packet Delivery Ratio: %s", packet_delivery_ratio)
-
-        print(f"Network Throughput: {throughput} bytes/sec")
-        print(f"Network Efficiency: {efficiency} packets/sec")
-        print(f"Packet Delivery Ratio: {packet_delivery_ratio}")
 
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, CONFIG_DISPATCHER])
     def _state_change_handler(self, ev):
