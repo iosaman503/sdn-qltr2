@@ -165,14 +165,14 @@ class SDNQLTRController(app_manager.OSKenApp):
         else:
             self.logger.warning("Total duration is 0, cannot calculate parameters.")
 
-    def calculate_network_parameters(self, total_packets, total_bytes, total_duration):
-        throughput = total_bytes / total_duration if total_duration > 0 else 0
-        efficiency = total_packets / total_duration if total_duration > 0 else 0
-        packet_delivery_ratio = total_packets / (total_packets + 10)
+    # def calculate_network_parameters(self, total_packets, total_bytes, total_duration):
+    #     throughput = total_bytes / total_duration if total_duration > 0 else 0
+    #     efficiency = total_packets / total_duration if total_duration > 0 else 0
+    #     packet_delivery_ratio = total_packets / (total_packets + 10)
 
-        self.logger.info("Network Throughput: %s bytes/sec", throughput)
-        self.logger.info("Network Efficiency: %s packets/sec", efficiency)
-        self.logger.info("Packet Delivery Ratio: %s", packet_delivery_ratio)
+    #     self.logger.info("Network Throughput: %s bytes/sec", throughput)
+    #     self.logger.info("Network Efficiency: %s packets/sec", efficiency)
+    #     self.logger.info("Packet Delivery Ratio: %s", packet_delivery_ratio)
 
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, CONFIG_DISPATCHER])
     def _state_change_handler(self, ev):
@@ -188,5 +188,3 @@ class SDNQLTRController(app_manager.OSKenApp):
                 del self.datapaths[datapath.id]
                 print(f"Datapath {datapath.id} unregistered")
 
-print("Starting OSKEN script")
-print("OS-KEN Run completed")
